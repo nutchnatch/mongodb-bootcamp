@@ -1,0 +1,12 @@
+#Lookup is a helpful tool that allows to fetch two related documents, merges together in one document in one step instead of doing it in two steps.
+#This mitigate tof spliting documents across collections, because now we can merge them in one go.
+#For example, aggregate authors and books together:
+#Insert book:
+db.books.insertOne({name: "My favorite book", authors: [{name: "Joy de Constança", age: 35}]})
+#Insert authors:
+db.authors.insertMany([{name: "Joy de Constança", age: "35"}, {name: "Manel Tobok", age: 39}])
+#Update books with authors:
+db.books.updateOne({}, {$set: {authors: [ObjectId("5eaf2d52df2ece2d7953018f"), ObjectId("5eaf2d52df2ece2d79530190")]}})
+#Do aggregate to fetch books and authors:
+db.books.aggregate([{$lookup: {from: "authors", localField: "authors", foreignField: "_id", as: "creators"}}]).pretty()
+

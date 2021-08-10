@@ -1,0 +1,9 @@
+#To import data into mongodb, use the following command. Specify file to import, which db to imort to (-d option); which collection to use (-c option). If the file t impor contains an array of documents, we should specify "--jsonArray" format. If the collection already exist, we can decide to drop it and recreate it again with "--drop" option.
+ mongoimport --uri "mongodb://root:password123@127.0.0.1:27017/?relicaSet=mongodb-primary" tv-shows.json -c movies --jsonArray
+
+mongoimport --username root --password password123 --host mongodb-primary/127.0.0.1:27017 tv-shows.json -d movieData -c movies --jsonArray
+
+mongoimport --username root --password password123 --host 127.0.0.1:27017 tv-shows.json -c movies --jsonArray
+
+ #Coonecting to mongo:
+ mongo --username root --password 'password123' --host 'mongodb-primary'/127.0.0.1:27017

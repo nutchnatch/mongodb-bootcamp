@@ -1,0 +1,27 @@
+#With the following insert operation, if we hit it twice, we will get key vaiolation error, and it will avoid the isertion of some that are not repeated,
+because the isertion is ordered ny default
+db.hobbies.insertMany([{_id: "yoga", name: "Yoga", {_id: "cooking", name: "Cooking"}, {_id: "hiking", name: "Hiking"}}])
+
+#To change this, we can insert with unordered configuration:
+db.hobbies.insertMany([{_id: "yoga", name: "Yoga", {_id: "cooking", name: "Cooking"}, {_id: "hiking", name: "Hiking"}}], {ordered: false})
+
+
+#Write concern - allows to define a way to create a journal to save data before in memory and then in mongodb engine. w means that the server aknolodge it. If set to 0 (w: 0) we receive an aknolodge answer as false, the server has not registered it yet, we did not wait for the response.
+db.persons.insertOne({name: "Christy", age: 41}, {writeConcern: {w: 0}})
+{ "acknowledged" : false }
+
+#The default for this is w:1 and so, the response it normal, as expected
+db.persons.insertOne({name: "Christy", age: 41}, {writeConcern: {w: 1}}):
+ "acknowledged" : true,
+ "insertedId" : ObjectId("5eb3ceb5b456e48549d57d06")
+
+ #We can also configure the journal (check and verify if all operation executes correctly) - If we set the journal to false, we get the answer:
+ db.persons.insertOne({name: "Michael", age: 51}, {writeConcern: {w: 1, j: false}})
+
+ #If we set it to true, it can last more time to finish:
+ db.persons.insertOne({name: "Josefina", age: 51}, {writeConcern: {w: 1, j: true}})
+
+ #With timeout conf, it can be:
+ db.persons.insertOne({name: "Antonieta", age: 51}, {writeConcern: {w: 1, j: true, wtimeout: 200}})
+
+ #Documents can be inseted with insertOne() - one document at a time or insertMany() - multiple documents. insert() also exists but it´s not recommended to use it anymore - it also doesn't return the inserted ids.

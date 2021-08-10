@@ -1,0 +1,24 @@
+#To see all mongodb  options, run:
+mongod --help
+
+$Mongo db can be started with db and log conf dir like:
+mongod --dbpath /bitnami/mongodb/db --logpath /bitnami/mongodb/logs/log.log
+
+#To run mongodb as a child process, on background process:
+mongod --fork --logpath /bitnami/mongodb/logs/log.log
+
+#To create a config file, check mongodb documentation
+#Also, we can create a file, for example mongodb.cfg file with configuration inside
+#Then, we can run mongodb with that config file:
+sudo mongod -f /bitnami/mongodb/mongodb.cfg
+
+#After connecting to mongodb, we can access help commands with:
+help
+help admin
+
+#We can access help options on collections like - this will show all options available for collections
+db.test.help()
+
+#To have a mongo de view, MongoDBCompass can be used
+#To search n+on MongoDBCompass, we can for example enter this query:
+{type: "WxtUkAPf2R"}

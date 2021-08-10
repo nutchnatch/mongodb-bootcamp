@@ -1,0 +1,14 @@
+#To delete Chris document:
+db.users.deleteOne({name: "Chris"})
+
+#Delete all that are sporty
+db.users.deleteMany({totalAge: {$exists: false}, isSporty: true})
+
+#To delete all entries in a collection 
+db.users.deleteMany({})
+
+#An alternative would be - this is not entirelly recomended
+db.users.drop()
+
+#To drop an entire database:
+db.dropDatabase()

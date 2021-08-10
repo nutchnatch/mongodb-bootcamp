@@ -1,0 +1,15 @@
+#To specify the port (when mongodv server is running) to connect when logging in mongodb, use the following command:
+mongo --port 27018
+
+#To see the reset of the results after  aquery for example, use the command:
+it
+#Or toArray() can be added to the end of the command:
+db.documents.find().pretty().toarray()
+
+#Other way to filter data and execute an operation over each of the items:
+db.documents.find().forEach((docdata) => printjson(docdata))
+#In this case it was passed a javascript command inside forEach() method to print to json:
+db.documents.find().forEach((docdata) => printjson(docdata))
+#Beside printjson, other methods can be found on specific mongo driver (e.g java driver)
+
+# findOne() dows not work with pretty() because it does not provide a cursor

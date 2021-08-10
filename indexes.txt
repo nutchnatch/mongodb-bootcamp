@@ -1,0 +1,213 @@
+#Turn query more efitient. They can speedup or slowdown queries.
+
+#Given the following query:
+db.products.find({seller: "Max"})
+#The default behavior is to scan all elements (may be thousands) in db to search for seller if there is no index for it
+
+#Index is not a replcace for a collection, but
+#If we create an index for seller field in this example, so the index will be an ordered list for all the values for seller field existing in the document. Besinde the valu, it keeps a pointer to the full document it belongs to. This allows mongoDB to do an IXSCAN
+#So it sees that for seller such index exists and it goes to the seller index anc can quickly jump to the value, because there, unlije for the collection, it knows that the values are sorted by that key. So it does not to look for the first values, just look for those starting with M (for Max in the example). So, with the pointer, it can fastly find the correlated document for tha value.
+
+#But we can overuse the indexes. Because this can cust too much in the insert operation, since al that indexes must be maintained (the ordered list).
+
+#Find with the following query:
+db.contacts.find({"dob.age": {$gt: 60}}).pretty()
+
+#To find the execution plan, the way the query was done:
+db.contacts.explain().find({"dob.age": {$gt: 60}}):
+
+#The result was the following winningplan:
+"winningPlan" : {
+                        "stage" : "COLLSCAN",
+                        "filter" : {
+                                "dob.age" : {
+                                        "$gt" : 60
+                                }
+                        },
+                        "direction" : "forward"
+                },
+                "rejectedPlans" : [ ]
+#Which is a full scan 
+
+#We can find more details, passing "executionStats"
+db.contacts.explain("executionStats").find({"dob.age": {$gt: 60}})
+#With thie result:
+"executionSuccess" : true,
+"nReturned" : 1222,
+"executionTimeMillis" : 4,
+"totalKeysExamined" : 0,
+"totalDocsExamined" : 5000,
+
+#Here we see that in order to fetch 1222, it examined 5000 documents, so inneficient.
+
+#So, let's create an index. 1 indicates that order will be ascending while -1 means descending
+db.contacts.createIndex({"dob.age": 1})
+
+#If we repeat the explain command again, we get:
+ "inputStage" : {
+                "stage" : "IXSCAN",
+                "nReturned" : 1222,
+#Here, it did not do a fullscan, but an IXCAN (indexed scan) and return 1222 keys in index.
+#Next stage will be:
+"executionStages" : {
+                "stage" : "FETCH",
+                "nReturned" : 1222
+#Which will fetch the real document based on the index
+
+#To drop an index, we run:
+db.contacts.dropIndex({"dob.age": 1});
+
+#If we run explain plan again:
+db.contacts.explain().find({"dob.age": {$gt: 60}}):
+#We can see that if run faster, because the collections are already in memory since it was run before.
+
+#If queries return almost all the time the majority of queries, then index will not be helful, it might eventually slow down the execution. If queries return about 20% or 30% then indexes can speed it up.
+
+#Number and text are more likely to have indexes. Boolean (only two value), not really.
+
+#Create index over gender:
+db.contacts.createIndex({gender: 1})
+#Running explain plan:
+db.contacts.explain("executionStats").find({gender: "male"})
+"totalKeysExamined" : 2435,
+"totalDocsExamined" : 2435,
+#Between 5000 documents, 2435 are male because it is a large chunk of our total data.
+#Dopping the index:
+db.contacts.dropIndex({gender: 1})
+
+#Coupmound index with more than one field. I stores one index to two combined fields:
+db.contacts.createIndex({"dob.age": 1, gender: 1})
+
+#Explain plan:
+db.contacts.explain().find({"dob.age": 35, gender: "male"})
+ "stage" : "IXSCAN",
+"keyPattern" : {
+        "dob.age" : 1,
+        "gender" : 1
+},
+"indexName" : "dob.age_1_gender_1",
+#This also works for queries with this only the first field:
+db.contacts.explain().find({"dob.age": 35, gender: "male"})
+#But, gender alone will not use this index:
+db.contacts.explain().find({gender: "male"})
+#The second is just sorted after the gender, so we can use from the first with ot without all filds that come after. But it will not work with just the filds that come after alone - this is the limitation
+db.contacts.explain("executionStatus").find({"dob.age": 35, gender: "male"})
+
+#If we have an ordered list of values already, mongodb can use it to give list of docs we need. In this case it uses the index above and the gender info for the sorting:
+db.contacts.explain().find({"dob.age": 35}).sort({gender: 1})
+
+#Mongodb has a threshold of 32 MB for sorting, so if we sort without indexes for a huge amout of data, we can timeout. So index can be use also for sorting.
+
+
+#See all indexes:
+db.contacts.getIndexes()
+#There is a default index created with _id
+
+#To create a rule fo uniqeness for a given field:
+db.contacts.createIndex({email: 1}, {unique: true})
+
+#Partial filters - for values that we are regulary goin go tlook for:
+#It supports all filter expressions
+db.contacts.createIndex({"dob.age": 1}, {partialFilterExpression: {gender: "male"}})
+ddb.contacts.createIndex({"dob.age": 1}, {partialFilterExpression: {"dob.age": {$gt: 60}}})
+
+db.contacts.explain().find({"dob.age": {$gt: 60}})
+
+#Difference between partial index and comound index?
+For the partial index, the overall index is smaller. Only the male is store in the index, not the female - index size is smaller leadding to have a smaller impact in the hard drive and write queries al also speed up, because insert including female will never be added to the index.
+
+
+db.users.insertMany([{name: "Max", email: "mx@test.com"}, {name: "Menu"}])
+db.users.createIndex({email: 1})
+db.users.dropIndex({email: 1})
+db.users.createIndex({email: 1}, {unique: true})
+db.users.insertOne({name: "Ana"}) - this one may fail because we do not provide email, which is a unique key. In this case, if we really want to insert documents without email (even if is a key), then we have to create a partialFilterExpression instead - just create index for docs which have emails:
+db.users.createIndex({email: 1}, {unique: true, partialFilterExpression: {email: {$exists: true}}})
+db.users.insertOne({name: "Ana"})
+#So, the follow insert will work:
+db.users.insertOne({name: "Ana"})
+
+#Time-to-live index - when we want to keep some data for some time:
+db.sessions.insertOne({data: "gfsdgdfgd"}, createAt: new Date())
+#Add a time to live - expireAfterSeconds: every element should be removed after 10s
+db.sessions.createIndex({creatAt: 1}, {expireAfterSeconds: 10})
+#After 10 seconds, those elements should be deleted. I works only in date onjects and just on indexes with just one field, not compound ones.
+
+
+#Covered queries:
+db.customers.insertMany({name: "Max", age: 29, salary: 3000}, {name: "Menu", age: 30, salary: 4000})
+db.customers.createIndex({name: 1})
+db.constumers.explain("executionStats").find({name: "Max"})
+#Using projection here to filter _id and show only the name
+db.constumers.explain("executionStats").find({name: "Max"}, {_id: 0, name: 1})
+in this case, it just use the index to query without examining any documents.
+
+
+#Rejecting a plan:
+#Create a coumpund index:
+db.customers.createIndex({age: 1, name: 1})
+#Explain
+db.customers.explain().find({name: "Max", age: 30})
+ "indexName" : "age_1_name_1" was used
+#We have a rejected plan (name index) since we have two indexes that can be used here.
+#How does MongoDB validate an choose the best index?
+Winningplan - Mongo checks which index is fastest fetching data and caches the plan and use it for the future. That cash is cleared after some inserting 1000 documents or after restar db, indexes are added, removed or rebuilt.
+SO, it is remoended to revise, check the queries to see what mongodb actually does if indexes are used effitiantly or if they can be changed, or if the queries must be tuned, for example using projection
+
+db.constumers.explain("allPlansExecution").find({name: "Max", age:30})
+
+
+#Multiley index:
+db.contacts.inserOne({name: "Max", hobbies: ["Cooking", "Sports"], addresses: [{street: "Main Street"}, {street: "Second Street"}]})
+db.contacts.createIndex({hobbies: 1})
+db.contacts.explain("executionStats").find({hobbies: "Sports"})
+"indexName" : "hobbies_1",
+"isMultiKey" : true - because it is an index on an array of values - mongodb pulls out all the elements of the array and add them as separate elements in the index, so multikey is bigger tha single filed index. Do in this case, consider if you really want to use it.
+db.contacts.createIndex({addresses: 1})
+db.contacts.explain("executionStats").find({"addresses.street": "Main Street"})
+#COLSCAN is used instead of index - because the created index holds the hole document, not the fields of the document
+#Instead we can use find just over addresses:
+db.contacts.explain("executionStats").find({"addresses": "Main Street"})
+#Or create an index on address.street:
+db.contacts.createIndex({"addresses.street": 1}) - this will be a multikey index that is create on a filed od a document that is part of an array
+#Be careful with it, because every document added has to update all indexes with the multikeys, which can cause performcance problems.
+#One restriction in multikeys is to add index with more than one multikeys:
+db.contacts.createIndex({addresses: 1, hobbies: 1})
+
+#Text index - turn an array in a single word 
+db.products.insertMany([{title: "A book", desciption: "This is an awesome book about a young artist"}, {title: "Red T-shirt", description: "This T-shirt is red and it's pretty awesome"}])
+#Create index - with special "test" keyword
+db.products.createIndex({description: "text"})
+db.products.find({$text: {$search: "awesome"}}) - here we don't have to specify the field name "description" this is because you may have one tet index per collection, since they are pretty expensive.
+#The following search will just search for the words (red book) separely in the text, instead of using it as a hole word:
+db.products.find({$text: {$search: "red book"}}) 
+#If we want to search it like an expression, we use "" (if we have already "", we have to backslash it):
+db.products.find({$text: {$search: "\"pretty awesome\""}}) .pretty
+
+#We can score the results - text and sorting
+db.products.find({$text: {$search: "pretty awesome"}}, {score: {$meta: "textScore"}}).pretty() - projection used here - $meta is an operator that mongodb uses tomanage test index
+#Adding sort:
+db.products.find({$text: {$search: "awesome t-shirt"}}, {score: {$meta: "textScore"}}, {score: {$meta: "textScore"}}).pretty()
+
+
+#Combined text index - merge first text index
+#Text index can be dropped by index_name:
+db.products.dropIndex("description_text")
+db.products.createIndex({title: "text", description: "text"})
+#Insert a new product:
+db.product.insertOne({title: "A Ship", description: "Floats perfectly!"})
+#Find text:
+db.products.find({$text: {$search: "ship"}}).pretty()
+
+#To exclude a word in the search (in this case exclude t-shirt):
+db.products.find({$text: {$search: "awesome-t-shirt"}}).pretty()
+
+#Create a new index - passs a config (default_language):
+db.products.creteIndex({title: "text", description: "text"}, {default_language: "english"})
+#Define differente waiths for different fields:
+db.products.createIndex({title: "text", description: "text"}, {default_language: "english", weights: {title: 1, description: 10}})
+#Now we can search - here we can define the language and if we prefer case sensitive:
+db.products.find({$text: ${search: "red", $language: "german", $caseSensitive: true}})
+
+#Add indexes in foreground or background
+#Index creation block us to insert new document or perform a search while indexes are neing created

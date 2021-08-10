@@ -1,0 +1,68 @@
+#Use it to fetch more data:
+db.movies.find()
+it
+
+#Use "next" to retrieve the exact next document:
+db.movies.find().next()
+
+#But the above will return the same element, since we did not save the dbCursor
+#Saving the cursor and we can use it to retrieve next elements
+const dataCursor = db.movies.find()
+dataCursor.next()
+
+#Iterating all element on the cursor:
+dataCursor.forEach(doc => {printjson(doc)})
+
+#Before executing next, we can test hasNext before:
+dataCursor.hasNext()
+
+#Recreate cursor to assign hasNext
+const cursor = db.movies.find()
+cursor.hasNext()
+cursor.next()
+
+#Sort by rating.average on descending or ascending (1 means ascending, -1 means descending) 
+#Ascending:
+db.movies.find().sort({"rating.average": 1, runtime: -1}).pretty()
+#Descending:
+db.movies.find().sort({"rating.average": -1}).pretty()
+
+#Sort by more than one condition -  this sort runtime in descending order after average in ascending order
+db.movies.find().sort({"rating.average": 1, runtime: -1}).pretty()
+db.movies.find().sort({"rating.average": 1, runtime: -1}).pretty()
+
+#Skip an amount of data
+db.movies.find().sort({"rating.average": 1, runtime: -1}).sort({"rating.average": 1}).skip(100).pretty()
+
+#Limit the amout of data the dursor should return
+db.movies.find().sort({"rating.average": 1, runtime: -1}).skip(100).limit(10).pretty()
+
+#Use projection to control which data to retrieve and send (this is useful when we want just to select specific attributes to return, instead of returning everything):
+#If we don´t need to include any filter, any criteria, we just  pass empty into find():
+db.movies.find({}).pretty()
+
+#If we want to get name, genres, runtime, etc:
+db.movies.find({}, {name:1, genres: 1, runtime: 1}).pretty()
+#_id will always be included, if we don't want to include it, we specify it to zero (_id: 0):
+db.movies.find({}, {name:1, genres: 1, runtime: 1, _id:0}).pretty()
+
+#We can also project on embedded documents:
+#For example, in schedule we just want to retrieve "time" field:
+db.movies.find({}, {name:1, genres: 1, runtime: 1, "schedule.time": 1, _id: 0}).pretty()
+
+#Projection in array. Consider genres array
+#The following will return all documents where "genres" array contains "Drama"
+db.movies.find({genres: "Drama"}).pretty()
+#If we want to filter only the "genres" elements that contain "Drama", excluding the rest of the document, we use ptojection like this:
+db.movies.find({genres: "Drama"}, {"genres.$": 1}).pretty()
+
+#If we want to do a condition and further pull out specific elements, in this case show exaclty when we have "Horror" in the query
+db.movies.find({genres: "Drama"}, {genres: {$elemMatch: {$eq: "Horror"}}}).pretty()
+#Other example with rating:
+db.movies.find({"rating.average": {$gt: 9}}, {genres: {$elemMatch: {$eq: "Horror"}}}).pretty()
+
+#Slice operator - give a slice fs a given array (only two elements from genres array)
+db.movies.find({"rating.average": {$gt: 9}}, {genres: {$slice: 2}, name: 1}).pretty()
+
+#Other example is to skip the 1st element and just pull out the 2nd and third ones from genres arrray
+db.movies.find({"rating.average": {$gt: 9}}, {genres: {$slice: [1,2]}, name: 1}).pretty()

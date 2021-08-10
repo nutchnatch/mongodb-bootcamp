@@ -1,0 +1,81 @@
+#To update a specific person:
+db.users.updateOne({_id: ObjectId("5eb3d0ab283146e257d6045a")}, {$set: {hobbies: [{title: "Sports", frequency: 5}, {title: "Cooking", frequency: 3}, {title: "Hiking", frequency: 1}]}})
+
+#We can use also updateMany() - in this case we the second attribute will replace the first if the update operation succeeds.
+
+#We can update many fields at same time
+db.users.updateOne({_id: ObjectId("5eb48f2d33686916e9c23381")}, {$set: {age: 40, phone: 45454656565}})
+
+#Using update to incremnt
+db.users.updateOne({name: "Chris"}, {$inc: {age: 1}})
+
+#Using update to increment
+db.users.updateOne({name: "Chris"}, {$inc: {age: -1}})
+
+#We can combine it with multiple attributes, like:
+db.users.updateOne({name: "Chris"}, {$inc: {age: 1}, $set: {isSporty: false}})
+
+#This may fail because we are using the same operator twice
+db.users.updateOne({name: "Chris"}, {$inc: {age: 1}, $set: {age: 30}})
+
+#Update a value using min - changes the value if the new one is lower than the existing one. The oposite does not work
+db.users.updateOne({name: "Chris"}, {$min: {age: 35}})
+
+#Update a value using max - changes the value if the new one is bigger than the existing one. The oposite does not work
+db.users.updateOne({name: "Chris"}, {$max: {age: 37}})
+
+#We can use mul to multiply a value:
+db.users.updateOne({name: "Chris"}, {$mul: {age: 1.1}})
+
+#Unset to get rid of a field:
+#First, set phone to null
+db.users.updateMany({isSporty: true}, {$set: {phone: null}})
+#Using unset:
+db.users.updateMany({isSporty: false}, {$unset: {phone: ""}})
+
+#Rename a field (age to toalAge)
+db.users.updateMany({}, {$rename: {age: "totalAge"}})
+
+
+#Upsert - used with updateOne and updateMany - if document does not exis, create it.
+db.users.updateOne({name: "Maria"}, {$set: {age: 29, hobbies: [{title: "Good food", frequency: 3}], isSporty: true}}, {upsert: true})
+
+#Update matched array - the following query do an "Or" with the options
+db.users.find({$and: [{"hobbies.title": "Good food"}, {"hobbies.frequency": {$gte: 3}}]}).pretty()
+#To have exaxt query (withou "Or"), we should express it in the query, using match:
+db.users.find({hobbies: {$elemMatch: {title: "Good food", frequency: {$gte: 3}}}}).pretty()
+
+#Futher, we can update that found document - in this case we are adding a new field "highFrequency"; instead, we could also update existing fields
+db.users.updateMany({hobbies: {$elemMatch: {title: "Good food", frequency: {$gte: 3}}}}, {$set: {"hobbies.$.highFrequency": true}})
+
+#Filter all hobbies that has hobbies.frequency gt 2:
+db.users.find({"hobbies.frequency": {$gt: 2}}).pretty()
+
+#On abpve query does we want to update them. But attention that with $ sign, only the first match is updated.
+db.users.updateMany({"hobbies.frequency": {$gt: 2}}, {$set: {"hobbies.$.goodFrequency": true}})
+
+#So, to update all the element in the array - we use the $[] to update all elements with frequency field
+db.users.updateMany({totalAge: {$gt: 30}}, {$inc: {"hobbies.$[].frequency": -1}})
+
+#Update hobbies for one element
+db.users.updateOne({_id: ObjectId("5eb48f2d33686916e9c23381")}, {$set: {hobbies: [{title: "Season", frequency: 7}], isSporty: true}})
+
+#Update specific fields
+db.users.find({"hobbies.frequency": {$gt: 2}})
+#Add a new arrayFilters to insert new filter condition in order to find those elements to update - filter elements in the array that should be updated
+db.users.updateMany({"hobbies.frequency": {$gt: 2}}, {$set: {"hobbies.$[el].goodFrequency": true}}, {arrayFilters: [{"el.frequency": {$gt: 2}}]})
+
+#Adding new elements to an existing array
+db.users.updateOne({name: "Maria"}, {$push: {hobbies: {title: "Sports", frequency: 2}}})
+
+#If we want to add new elements to the existing elements of the array:
+db.users.updateOne({name: "Maria"}, {$push: {hobbies: {$each: [{title: "Good wine", frequency: 1}], $sort: {frequency: -1}}}})
+
+#Remove items from array with pull option
+db.users.updateOne({name: "Maria"}, {$pull: {title: "Hiking"}})
+
+#Remove the last element from the array with poll option
+db.users.updateOne({name: "Chris"}, {$pop: {hobbies: 1}})
+
+#Another way to update an array is using addToSet option. Push allow to insert duplicated date, but addToSet does not allow
+db.users.updateOne({name: "Chris"}, {$push: {hobbies: {title: "Hiking", frequency: 2}}})

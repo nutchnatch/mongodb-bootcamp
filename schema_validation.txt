@@ -1,0 +1,107 @@
+
+#Creating a blog
+use blog
+
+#Adding users
+db.users.insertMany([{name: "Maximiliano", age: 34, email: "fula@test.com"}, {name: "Jaky", age: "30", email: "jack@test.com"}])
+
+#Adding posts
+db.posts.insertOne({title: "My first Post!", text: "This is my first post, I hope you like it", tags: ["new", "tech"], creator: ObjectId("5eb0587dc6f053b86e2dff79"), comments: [{text: "I like this post!", author: ObjectId("5eb0587dc6f053b86e2dff7a")}]})
+
+#A collection can also be dropped like:
+db.posts.drop()
+
+#Drop posts collection and recreate it with a validator:
+db.createCollection("posts", { 
+    validator: { 
+        $jsonSchema: { 
+            bsonType: "object",
+            required: ['title', 'text', 'creator', 'comments'], 
+            properties: { 
+                title: { 
+                    bsonType: "string", 
+                    description: "must be a string and is required"
+                }, 
+                text: { 
+                    bsonType: "string", 
+                    description: "must be a string and is required" 
+                },
+                creator: { 
+                    bsonType: "objectId", 
+                    description: "must be a objectId and is required" 
+                },
+                comments: { 
+                    bsonType: "array", 
+                    description: "must be an array and is required", 
+                    items: { 
+                        bsonType: "object", 
+                        required: ["text","author"],
+                        properties: { 
+                            text: { 
+                                bsonType: "string",
+                                description: "Must be a string and must be required"
+                            },
+                            author: {
+                                bsonType: "objectId",
+                                description: "must be an onjectId and is required"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+});
+
+#Now, if I try to add a document like the following (without correct types as stated on validation - e.g author is not a number):
+replicaset:PRIMARY> db.posts.insertOne({title: "My first Post!", text: "This is my first post, I hope you like it", tags: ["new", "tech"], creator: ObjectId("5eb0587dc6f053b86e2dff79"), comments: [{text: "I like this post!", author: 23}]})
+
+#It returns a validation error:
+2020-05-04T18:09:21.035+0000 E QUERY    [js] WriteError: Document failed validation 
+
+#We can run another validator on a collection already created:
+db.runCommand({
+    collMod: 'posts', 
+    validator: { 
+        $jsonSchema: { 
+            bsonType: "object",
+            required: ['title', 'text', 'creator', 'comments'], 
+            properties: { 
+                title: { 
+                    bsonType: "string", 
+                    description: "must be a string and is required"
+                }, 
+                text: { 
+                    bsonType: "string", 
+                    description: "must be a string and is required" 
+                },
+                creator: { 
+                    bsonType: "objectId", 
+                    description: "must be a objectId and is required" 
+                },
+                comments: { 
+                    bsonType: "array", 
+                    description: "must be an array and is required", 
+                    items: { 
+                        bsonType: "object", 
+                        required: ["text","author"],
+                        properties: { 
+                            text: { 
+                                bsonType: "string",
+                                description: "Must be a string and must be required"
+                            },
+                            author: {
+                                bsonType: "objectId",
+                                description: "must be an onjectId and is required"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    validationAction: 'warn'
+})
+
+#Here the validationAction is'warn'.
+#If we try again to add an invalid document, it will succeed but a warning message is posted on the log file.

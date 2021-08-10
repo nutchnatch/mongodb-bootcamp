@@ -1,0 +1,422 @@
+#Aggrefation framework is an alternative for the find method.
+#Collection -> pipeline of steps (match, sort, group, project) -> output in the format desired
+
+#Running aggregate
+#Aggrefate can take advantage of the indexes and data in memory, don't have to fetch everything again just because we are using aggregate
+#Aggregating by famale. Syntax is similar to find operations
+db.persons.aggregate([{$match: {gender: "female"}}]).pretty()
+#It also returns a cursor.
+
+#Group
+_id will receive a document in order to group fields rogether
+Dollar $ sign - means I am reffering to a field of our document:
+{$group: {_id: {state: "$location.state"}, totalPerson: {$sum: 1}}} - group result by state
+#We can add a new field as we want (totalPerson) - here we can pass an aggregation function - $sum: 1 - that will agregate result in a group of 1 time numbe of result - three docs in the same state will be merged together
+
+#Adding sort operation on the result - totalPersons:
+#Here sort only have access to the result, but cannot access the original data used on the $group command:
+db.persons.aggregate([
+    {$match: {gender: "female"}},
+    {$group: {_id: {state: "$location.state"}, totalPersons: {$sum: 1}}},
+    {$sort: {totalPersons: -1}}
+]).pretty() 
+#Thedifference here is that with find, we had to manage and transform data on the client side, but with aggregatio, we already have data in the format we need, all provided by mongodb
+
+
+#Using projection with agregate - in this case we want to filter all the fields we want to show and select them in the aggregation:
+#Example with hardcoded values in $concat function:
+db.persons.aggregate([
+    {$project: {_id: 0, gender: 1, fullName: {$concat: ["Hello", "World"]}}}
+]).pretty()
+#Gethering first and last names as output
+
+#To add first and last name on upper case:
+db.persons.aggregate([
+    {$project: {
+        _id: 0,
+        gender: 1,
+        fullName: {$concat: [{$toUpper: "$name.first"}, " ", {$toUpper: "$name.last"}]}}}
+]).pretty() 
+
+#We can aggregage data and change first letter of first and last names to uppercase:
+db.persons.aggregate([
+    {$project: {
+        _id: 0,
+        gender: 1,
+        fullName: {
+            $concat: [
+                {$toUpper: {$substrCP: ['$name.first', 0, 1]}},
+                {$substrCP: [
+                    '$name.first',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.first'}, 1]}
+                    ]
+                },
+                " ", 
+                {$toUpper: {$substrCP: ['$name.last', 0, 1]}},
+                {$substrCP: [
+                    '$name.last',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.last'}, 1]}
+                    ]
+                }
+            ]
+        }
+    }
+}]).pretty()
+
+#Turn location to GeoLocation:
+#Adding another projection which output's result will be input for the next project:
+db.persons.aggregate([
+    {$project: {
+        _id: 0, 
+        name: 1, 
+        email: 1, 
+        location: {
+            type: 'Point', 
+            coordinate: [
+                    "$location.coordinates.longitude", 
+                    "$location.coordinates.latitude"
+            ]
+        }
+    } 
+    },
+    {$project: {
+        _id: 0,
+        gender: 1,
+        email: 1,
+        location: 1,
+        fullName: {
+            $concat: [
+                {$toUpper: {$substrCP: ['$name.first', 0, 1]}},
+                {$substrCP: [
+                    '$name.first',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.first'}, 1]}
+                    ]
+                },
+                " ", 
+                {$toUpper: {$substrCP: ['$name.last', 0, 1]}},
+                {$substrCP: [
+                    '$name.last',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.last'}, 1]}
+                    ]
+                }
+            ]
+        }
+    }
+}]).pretty()
+
+#Converting coordinates from string to number:
+#Here we use the function $convert that that receives two fields: input and to:
+db.persons.aggregate([
+    {$project: {
+        _id: 0, 
+        name: 1, 
+        email: 1, 
+        location: {
+            type: 'Point', 
+            coordinate: [
+                    {$convert: {
+                        input: "$location.coordinates.longitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+                    {$convert: {
+                        input: "$location.coordinates.latitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+            ]
+        }
+    } 
+    },
+    {$project: {
+        _id: 0,
+        gender: 1,
+        email: 1,
+        location: 1,
+        fullName: {
+            $concat: [
+                {$toUpper: {$substrCP: ['$name.first', 0, 1]}},
+                {$substrCP: [
+                    '$name.first',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.first'}, 1]}
+                    ]
+                },
+                " ", 
+                {$toUpper: {$substrCP: ['$name.last', 0, 1]}},
+                {$substrCP: [
+                    '$name.last',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.last'}, 1]}
+                    ]
+                }
+            ]
+        }
+    }
+}]).pretty()
+
+#Here, we can also transform birthdate from string to date and insert an age field. Since we have two project, we must add these two new fields to the second project:
+db.persons.aggregate([
+    {$project: {
+        _id: 0, 
+        name: 1, 
+        birthdate: {$convert: {input: "$dob.date", to: "date"}},
+        age: "$dob.age",
+        email: 1, 
+        location: {
+            type: 'Point', 
+            coordinate: [
+                    {$convert: {
+                        input: "$location.coordinates.longitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+                    {$convert: {
+                        input: "$location.coordinates.latitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+            ]
+        }
+    } 
+    },
+    {$project: {
+        _id: 0,
+        gender: 1,
+        email: 1,
+        location: 1,
+        birthdate: 1,
+        age: 1,
+        fullName: {
+            $concat: [
+                {$toUpper: {$substrCP: ['$name.first', 0, 1]}},
+                {$substrCP: [
+                    '$name.first',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.first'}, 1]}
+                    ]
+                },
+                " ", 
+                {$toUpper: {$substrCP: ['$name.last', 0, 1]}},
+                {$substrCP: [
+                    '$name.last',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.last'}, 1]}
+                    ]
+                }
+            ]
+        }
+    }
+}]).pretty()
+
+#Applying shurtcut transformations, using $toDate
+#Changing
+birthdate: {$convert: {input: "$dob.date", to: "date"}},
+to
+birthdate: {$toDate: "$dob.date"},
+
+#Now, we want to reestructure data again, add new fields and regroup them again. And in the end, we want to add the sort function:
+db.persons.aggregate([
+    {$project: {
+        _id: 0, 
+        name: 1, 
+        birthdate: {$toDate: "$dob.date"},
+        age: "$dob.age",
+        email: 1, 
+        location: {
+            type: 'Point', 
+            coordinate: [
+                    {$convert: {
+                        input: "$location.coordinates.longitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+                    {$convert: {
+                        input: "$location.coordinates.latitude", 
+                        to: "double", 
+                        onError: 0.0, 
+                        onNull: 0.0
+                    }
+                    }, 
+            ]
+        }
+    } 
+    },
+    {$project: {
+        _id: 0,
+        gender: 1,
+        email: 1,
+        location: 1,
+        birthdate: 1,
+        age: 1,
+        fullName: {
+            $concat: [
+                {$toUpper: {$substrCP: ['$name.first', 0, 1]}},
+                {$substrCP: [
+                    '$name.first',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.first'}, 1]}
+                    ]
+                },
+                " ", 
+                {$toUpper: {$substrCP: ['$name.last', 0, 1]}},
+                {$substrCP: [
+                    '$name.last',
+                    1, 
+                    {$subtract: [{$strLenCP: '$name.last'}, 1]}
+                    ]
+                }
+            ]
+        }
+    }
+},
+{$group: {_id: {birtYear: {$isoWeekYear: "$birthdate"}}, numPersons: {$sum: 1}}},
+{$sort: {numPersons: -1}}
+]).pretty()
+
+# $group vs $project:
+$group id n:1 relation - is for grouping multiple documents into one document. The grouping is done by one or more categories ans also with many new fields, summary, statistics, etc - do things like summing, counting, average and so on.
+$project is a 1:1 relation - you get one document and return one document. This last document will just have changed, with potential new fields.
+
+#Combine arrays in a grouping stage:
+#We can group hobbies arrays, using $push function to add hobbies entries found per 
+#Important to understand that we can push any field, not only arrays
+document:
+db.friends.aggregate([
+    { $group: { _id: {age: "$age"}, allHobbies: { $push: "$hobbies"} } }
+]).pretty()
+
+
+#Adding all hobbies to an array, not in theier nested arrays with $unwind stage - can pull out elements from an array and split it in multiple documents, each of them related to one element of the array:
+
+db.friends.aggregate([
+    { $unwind: "$hobbies" }
+]).pretty()
+
+#Now, we can group again getting hobbies as a field:
+db.friends.aggregate([
+    { $unwind: "$hobbies" },
+    { $group: { _id: {age: "$age"}, allHobbies: { $push: "$hobbies"} } }
+]).pretty()
+
+#Removing duplicate values, using $addToSet function instead of $push:
+db.friends.aggregate([
+    { $unwind: "$hobbies" },
+    { $group: { _id: {age: "$age"}, allHobbies: { $addToSet: "$hobbies"} } }
+]).pretty()
+
+#Using projection with arrays, we can extract only the first element of a given array, using $slice function - receives two arguments, one for the array and other for the index of the elements tha we want to get:
+
+#If we want to get the last two elements, we can start from the ending, like:
+db.friends.aggregate([
+    { $project: { _id: 0, examScore: { $slice: ["$examScores", -2] } } }
+]).pretty()
+
+#Get one element, starting from the 2nd element of the array:
+db.friends.aggregate([
+    { $project: { _id: 0, examScore: { $slice: ["$examScores", 2, 1] } } }
+]).pretty()
+
+#How many elements of an array with $size function pointing to the target array and store it in a new field:
+db.friends.aggregate([
+    { $project: { _id: 0, numScores: { $size: "$examScores"} } }
+]).pretty()
+
+#Filtering elements from the array with $filter function which allows to filter elements and return only those that fulfill the conditions: it receives as input, the source field and "as" which stores the result. The third element is the "cond" which contains the condition for this filter, we can pass for example $gt that receives an array with the values ($$sc.score - we want to extract score values) and the number that will be greater than (60)
+
+#Multiple operations to an array - transform array, we want to output the highest exam score for every person. Here we can add a projection to extract fields and score which will be used in sort operation. Then, we can group the results, extract the max score and sort them in descending order. For the name, the first element is used through function $first:
+
+    db.friends.aggregate([
+        { $unwind: "$examScores" },
+        { $project: { _id: 1, name: 1, age: 1, score: "$examScore.score" } },
+        { $sort: { score: -1} },
+        { $group: { _id: "$_id", name: { $first: "$name" }, maxScore: { $max: "$score" } } },
+        { $sort: {maxScore: -1} }
+    ]).pretty()
+
+#We can use $bucket stage to output data in buckets, in order to calculate some summaries and statitics. It takes a groupby field which receive a source data ($dob.age) and boundaries that are the categories (for examples, ages from 0-18, etc). And we can add num of persons and average age to the output:
+
+db.persons.aggregate([
+    { $bucket: {
+        groupBy: "$dob.age", 
+        boundaries: [18, 30, 40, 50, 60, 80, 120],
+        output: {
+            numPersons: { $sum: 1 },
+            averageAge: { $avg: "$dob.age" }
+        }
+     } }
+]).pretty()
+
+#An alternative would be to use autobucket:
+db.persons.aggregate([
+    { $bucketAuto: {
+        groupBy: "$dob.age",
+        buckets: 5,
+        output: {
+            numPersons: { $sum: 1 },
+            averageAge: { $avg: "$dob.age" }
+        }
+    } }
+]).pretty()
+
+#Additional stages - we want to find 10 users with the lowest birthdate:
+
+db.persons.aggregate([
+    { $project: { _id: 0, name: { $concat: ["$name.first", " ", "$name.last"]}, birthDate: { $toDate: "$dob.date" }}  },
+    { $sort: { birthDate: 1} },
+    { $limit: 10}
+]).pretty()
+
+#If we want to see the next 10:
+db.persons.aggregate([
+    { $project: { _id: 0, name: { $concat: ["$name.first", " ", "$name.last"]}, birthDate: { $toDate: "$dob.date" }}  },
+    { $sort: { birthDate: 1} },
+    { $skip: 10},
+    { $limit: 10}
+]).pretty()
+
+#Adding the oldest male with $match stage:
+db.persons.aggregate([
+    { $match: { gender: "male" } },
+    { $project: { _id: 0, name: { $concat: ["$name.first", " ", "$name.last"]}, birthDate: { $toDate: "$dob.date" }}  },
+    { $sort: { birthDate: 1} },
+    { $skip: 10},
+    { $limit: 10}
+]).pretty()
+
+
+#We can write pipeline results into a new collection, including the $out stage:
+{ $out: "transformedPersons" } - this transformed persons is an other collection that is creates with the content of the first one.
+
+#Working with $geoNear stage - used to find closes posistion in relation with our current position:
+#Add the index:
+db.persons.createIndex( { location: "2dsphere"})
+
+db.persons.aggregate([
+    { $geoNear: {
+        near: { 
+            type: "Point", 
+            coordinates: [-18.4, -42.8]
+        },
+        maxDistance: 100000,
+        num: 10,
+        query: { gender: { $gt: 30 } },
+        distanceField: "distance"
+    }}
+]).pretty()
+
+db.persons.createIndex({ location: "2dsphere"})

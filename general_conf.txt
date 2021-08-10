@@ -1,0 +1,43 @@
+#To specify the port (when mongodv server is running) to connect when logging in mongodb, use the following command:
+mongo --port 27018
+
+#To add document, just start inserting them in json format in the target collection:
+db.documents.insertOne({
+	"data1", "value1"
+	"data2", "value2"
+})
+
+#To delete:
+db.documents.deleteOne(_id: "txl_lhr-1")
+
+#To delete many:
+db.documents.deleteMany(issuer: "Cardif")
+
+
+#To see the reset of the results after  aquery for example, use the command:
+it
+#Or toArray() can be added to the end of the command:
+db.documents.find().pretty().toarray()
+
+#Other way to filter data and execute an operation over each of the items:
+db.documents.find().forEach((docdata) => printjson(docdata))
+#In this case it was passed a javascript command inside forEach() method to print to json:
+db.documents.find().forEach((docdata) => printjson(docdata))
+#Beside printjson, other methods can be found on specific mongo driver (e.g java driver)
+
+# findOne() dows not work with pretty() because it does not provide a cursor
+
+#To delete a db:
+db.dropDatabase()
+
+#To delete a collection:
+db.myCollection.drop()
+
+#To delete all entries:
+db.documents.deleteMany({})
+
+#To check the average size of a given collection:
+db.stats()
+
+#Insert many can be done as:
+db.answers.insertMany([{_id: "q1a1", text: "It works like this."}, {_id: "q1a2", text: "Thanks!"}])

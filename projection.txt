@@ -1,0 +1,8 @@
+#Used to fetch only necessary data from db instead of fetching everything and then postprocess it
+
+#For example, we are intereste only on the name of documents:
+#Here the first argument is empty because we want to filter all data without a filter
+#In the second parameter, we pass the projection, a pair of attrubutes we want to fetch
+db.documents.find({}, {issuer: 1}).pretty()  //here 1 indicates that we want to include it on the result
+#If we want to exclude de id:
+db.documents.find({}, {issuer: 1, _id: 0}).pretty()

@@ -1,0 +1,21 @@
+# In which format will you fetch your data?
+You want to store data in a way that is simple to fetch and to save.
+
+# How often will you fetch and change your data?
+Do you want to optmizie it for write or to read? 
+If you write a lot, make sure you don't have any duplicate. 
+If you read a lot maybe some duplicates are ok, if they don't change a lot.
+
+# How mush data will you save (and how big is it)?
+If you have a lot of data to save, maube embedded is not a good choice on that.
+
+How is data related?
+One to one? One to many? Many to many? The answer gives an inidcation for weather we are going to embedded documents or references.
+Use embedded docs if you have one-to-one or one-to-many and no app or data size reason to split.
+Use references if data amount/size or application needs require it or for many-to-many relations
+
+Will Duplicates hurt you (=> many Updates?) - consider this if you have a lot of snapshot and you don´t care about updates to most recent date of your product.
+
+Would you hit data storage limits? (for mongodb is 100 level deep of embedding)
+
+#Schema validation defines rules to validate inserts and updates before writing to the db

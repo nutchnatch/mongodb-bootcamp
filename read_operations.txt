@@ -1,0 +1,94 @@
+#Lower than operator:
+db.movies.find({runtime: {$lt: 40}}).pretty()
+
+#Equal to operator
+db.movies.find({runtime: {$eq: 40}}).pretty()
+
+#NotEqual to
+db.movies.find({runtime: {$ne: 60}}).pretty()
+
+#Lower than or equal
+
+#Raiting average greater than 7
+db.movies.find({"rating.average": {$gt: 7}})
+
+#Genres that contains Drama, at least Drama
+db.movies.find({genres: "Drama"}).pretty()
+
+#Genres that contains exactly Drama, only
+db.movies.find({genres: ["Drama"]}).pretty()
+
+#Genres that can be find in the list [30, 42] - equal to 30 or 42
+db.movies.find({runtime: {$in: [30, 42]}}).pretty()
+
+#Genres that cannot be find in the list [30, 42] - not equal to 30 nor 42
+db.movies.find({runtime: {$nin: [30, 42]}}).pretty()
+
+#Find rating.average lower then 5 or gteater than 9.3, nothing else
+db.movies.find({$or: [{"rating.average": {$lt: 5}}, {"rating.average": {$gt: 9.3}}]}).pretty()
+
+#Find rating.average not lower then 5 or not gteater than 9.3, nothing else - nor inverse or operation
+db.movies.find({$nor: [{"rating.average": {$lt: 5}}, {"rating.average": {$gt: 9.3}}]}).pretty()
+
+#Count the number of movies wirh rating greater than 9 and genre contains Drama
+db.movies.find({$and: [{"rating.average": {$gt: 9}}, {genres: "Drama"}]}).count()
+
+#this gives the same result as above
+db.movies.find({"rating.average": {$gt: 9}, genres: "Drama"}).count()
+
+#If we use the same field to filter, the second value override the first, like:
+db.movies.find({"genres": "Drama", genres: "Horror"}).count()
+
+#For example above, if we want to consider both options, we have to use and operator:
+db.movies.find({$and: [{genres: "Drama"}, {genres: "Horror"}]}).count()
+
+#Find not equals to
+db.movies.find({runtime: {$not: {$eq:60}}}).count()
+
+#Find if a field exists and greater than 5:
+db.movies.find({weight: {$exists: true, $gt: 5}}).pretty()
+
+#Exists and not equal to null
+db.movies.find({weight: {$exists: true, $ne: null}}).pretty()
+
+#Find if runtime is a number
+db.movies.find({runtime: {$type: "number"}}).pretty()
+
+#Find where summary is equal to music. It does not work since it looks for exactly "music" word
+db.movies.find({summary: "musical"}).pretty()
+
+#Other way to do it is using regex. This returns all movies where summary contains word "musical"
+db.movies.find({summary: {$regex: /musical/}}).pretty()
+
+
+#Expressions - find movies where volume is greater than target
+db.sales.insertMany([{volume: 100, target: 120}, {volume: 89, target: 80}, {volume: 200, target: 177}])
+db.sales.find({$expr: {$gt: ["$volume", "$target"]}})
+
+#This expression filter movies where volume greater tha target given the condition: if volume is greater or equal to 190, then substract 30, else use the volume value.
+db.sales.find({$expr: {$gt: [{$cond: {if: {$gte: ["$volume", 190]}, then: {$subtract: ["$volume", 10]}, else: "$volume"}}, "$target"]}}).pretty()
+
+
+#To query array data, with the following structure:
+"hobbies": [
+		{
+			"title": "Sports",
+			"frequency": 3
+		}
+]
+db.users.find({"hobbies.title": "Sports"}).pretty()
+
+#Add a user
+db.users.insertOne({name: "Chris", hobbies: ["sports", "cooking", "Hiking"]})
+
+#Find all users with exactly three values:
+db.users.find({hobbies: {$size: 3}}).pretty()
+
+#If we don't care about the order of genres, we can use $all that will retrieve everything
+db.moviestarts.find({genre: {$all: ["action", "thriller"]}).pretty()
+
+#Find where this and contition is verified
+db.users.find({$and: [{"hobbies.title": "Sports"}, {"hobbies.frequency": {gte: 2}}]}).pretty()
+
+#To verify if the a found element is exactly the one being looking but is a specific element, in this case title: "Sports"
+db.users.find(hobbies: {$elemMatch: {title: "Sports", "frequency": {$gte: 3}}})

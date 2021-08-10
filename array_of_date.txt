@@ -1,0 +1,11 @@
+#We can add array of subdocuments as follows:
+db.documents.updateOne({issuer: "Cardif"}, {$set: {urgentTags: ["SylTag", "confidTag"]}})
+#This new subdocument urgentTags will be added with its correspondent array.
+
+#Data array can be fetched like:
+db.documents.find({issuer: "Cardif"}).urgentTags
+#Or like this:
+db.documents.find({urgentTag: "confidTag"}).pretty()
+
+#Arrays can also be filtered like:
+db.documents.find({"tags.name": "ClaimManagement"}).pretty()

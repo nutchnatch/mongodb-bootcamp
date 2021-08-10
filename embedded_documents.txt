@@ -1,0 +1,8 @@
+#Embedded Documents is a way to nest many documents on searching operation
+#Mongodb supports up do 100 levels of nesting and each documents must have maximum 16MB of length
+
+#Other way to join documents together is through arrays of embedded documents and this array can hold any data
+
+#To update a document with embedded documents, we can do:
+db.documents.updateMany({}, {$set: {data: {confidentialityLevel: "public"}}})
+#This will update "data" subdocument with the new info.
